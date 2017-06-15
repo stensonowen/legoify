@@ -1,0 +1,9 @@
+[package]
+name = "legoify"
+version = "0.1.0"
+authors = ["owen <owen@oms.sh>"]
+
+[dependencies]
+image = "0.14.0"
+
+
