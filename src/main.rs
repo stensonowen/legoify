@@ -1,6 +1,7 @@
 #[macro_use]
-extern crate clap;
+extern crate serde_derive;
 extern crate image;
+extern crate docopt;
 
 use image::{Pixel, Primitive};
 use std::path::Path;
@@ -15,27 +16,18 @@ fn delta<S: Primitive, T: Pixel<Subpixel=S>>(x: T, y: T) -> S {
         .fold(S::zero(), |acc,i| acc+i)
 }
 
-fn main() {
-    let matches = clap::App::new(crate_name!())
-        .about(crate_description!())
-        .author(crate_authors!("\n"))
-        .version(crate_version!())
-        .arg(clap::Arg::with_name("input")
-             .required(true)
-             .index(1)
-             .value_name("image")
-             .help("source image")
-             .takes_value(true))
-        .arg(clap::Arg::with_name("width")
-             .short("y")
-             .takes_value(true)
-             .help("number of lego units across"))
-        .arg(clap::Arg::with_name("height")
-             .short("x")
-             .takes_value(true)
-             .help("number of lego units tall"))
-        .get_matches();
+const USAGE: &'static str = "
+Usage: legoify [options] <image>
+       legoify (--help | --version)
 
+Options:
+    -h, --help     Show this message
+    -v, --version  Show the version
+    -x, --width    Specify the output width in lego units
+    -y, --height   Specify the output height in lego units
+";
+
+fn main() {
     let input_path = Path::new(matches.value_of("input").unwrap());
     let input = image::open(input_path).expect("Couldn't open image");
 

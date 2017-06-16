@@ -5,5 +5,5 @@ authors = ["owen <owen@oms.sh>"]
 
 [dependencies]
 image = "0.14.0"
-clap = "2.24.2"
+getopts = "0.2.14"
 
