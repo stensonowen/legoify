@@ -1,10 +1,15 @@
-#[macro_use]
-extern crate serde_derive;
+extern crate getopts;
 extern crate image;
-extern crate docopt;
 
+use getopts::Options;
 use image::{Pixel, Primitive};
 use std::path::Path;
+
+fn usage(program: &str, opts: &Options) -> ! {
+	let brief = format!("Usage: {} [options] <image>", program);
+    print!("{}", opts.usage(&brief));
+    ::std::process::exit(1);
+}
 
 fn delta<S: Primitive, T: Pixel<Subpixel=S>>(x: T, y: T) -> S {
     // Euclidean distance square
@@ -16,20 +21,24 @@ fn delta<S: Primitive, T: Pixel<Subpixel=S>>(x: T, y: T) -> S {
         .fold(S::zero(), |acc,i| acc+i)
 }
 
-const USAGE: &'static str = "
-Usage: legoify [options] <image>
-       legoify (--help | --version)
-
-Options:
-    -h, --help     Show this message
-    -v, --version  Show the version
-    -x, --width    Specify the output width in lego units
-    -y, --height   Specify the output height in lego units
-";
-
 fn main() {
-    let input_path = Path::new(matches.value_of("input").unwrap());
-    let input = image::open(input_path).expect("Couldn't open image");
+    let mut args = ::std::env::args();
+    let program = args.nth(0).unwrap();
+    let args: Vec<String> = args.collect();
+
+    let mut opts = Options::new();
+    opts.reqopt("", "image",  "input image", "IMAGE");
+    opts.optopt("x", "width",  "output width in lego units", "X");
+    opts.optopt("y", "height", "output height in lego units", "Y");
+    opts.optopt("h", "help",   "print this message", "");
+    //let matches = opts.parse(&args).unwrap_or_else(|_| usage(&program, &opts));
+    let matches = opts.parse(&args).unwrap();
+    if matches.opt_present("i") == false || matches.opt_present("h") {
+        usage(&program, &opts);
+    }
+
+    //let input_path = Path::new(matches.value_of("input").unwrap());
+    //let input = image::open(input_path).expect("Couldn't open image");
 
     //let img = image::open(&Path::new("test.jpg")).unwrap();
     //let (width, height) = img.dimensions();
