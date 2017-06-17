@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 use std::io::{stderr, Write};
-use image::{self, DynamicImage, GenericImage};
+use image::{self, DynamicImage, GenericImage, FilterType};
+
+const SCALE_STRAT: FilterType = FilterType::Nearest;
 
 fn usage(prog: &str) -> ! {
     // if I have to switch to nightly remember to use eprint(ln) instead
@@ -28,21 +30,16 @@ fn parse_pos_num(n: &str, prog: &str) -> u32 {
     }
 }
 
-pub struct Args {
-    pub width: u32,
-    pub height: u32,
-    pub image: DynamicImage,
-}
-
-pub fn get_args() -> Args {
+pub fn scale_args() -> DynamicImage {
+    // process arguments, open specified image, and resize it
     let mut args = ::std::env::args();
     let prog = args.nth(0).unwrap();
     let (mut w, mut h, mut p) = (0, 0, None);
     let (mut expect_w, mut expect_h) = (false, false);
     for arg in args {
-        match &arg[..] {
-            n if expect_w => { expect_w = false; w = parse_pos_num(&n, &prog) },
-            n if expect_h => { expect_h = false; h = parse_pos_num(&n, &prog) },
+        match arg.as_str() {
+            n if expect_w => { expect_w = false; w = parse_pos_num(n, &prog) },
+            n if expect_h => { expect_h = false; h = parse_pos_num(n, &prog) },
             "-h" | "--help" => usage(&prog),
             "-x" | "--width" => expect_w = true,
             "-y" | "--height" => expect_h = true,
@@ -54,10 +51,10 @@ pub fn get_args() -> Args {
                 usage_and("Found unexpected arg: `{}`", &prog)
             } else {
                 let pb = PathBuf::from(i); // allocation :(
-                if pb.exists() == false {
-                    usage_and("Must supply a valid image path", &prog);
-                } else {
+                if pb.exists() {
                     p = Some(pb);
+                } else {
+                    usage_and("Must supply a valid image path", &prog);
                 }
             }
         }
@@ -69,9 +66,10 @@ pub fn get_args() -> Args {
     let pic = image::open(&path).expect("Could open source image");
     let (pic_w, pic_h) = pic.dimensions();
     match (w, h) {
-        (0,0) => Args { width: pic_w, height: pic_h, image: pic },
-        (x,0) => Args { width: x, height: pic_h*x/pic_w, image: pic },
-        (0,y) => Args { width: pic_w*y/pic_h, height: y, image: pic },
-        (x,y) => Args { width: x, height: y, image: pic },
+        (0,0) => pic,
+        (x,0) => pic.resize(x, pic_h*x/pic_w, SCALE_STRAT),
+        (0,y) => pic.resize(pic_w*y/pic_h, y, SCALE_STRAT),
+        (x,y) => pic.resize_exact(x, y, SCALE_STRAT)
     }
 }
+

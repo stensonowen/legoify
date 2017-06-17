@@ -1,4 +1,4 @@
-use image::{Rgb, Pixel, Primitive, ImageBuffer, GenericImage};
+use image::{Rgb, Pixel, Primitive, ImageBuffer, GenericImage, DynamicImage};
 use std::collections::HashMap;
 
 fn delta<S: Primitive, T: Pixel<Subpixel=S>>(x: &T, y: &T) -> S {
@@ -20,10 +20,11 @@ fn nearest_color(c: &Rgb<u8>) -> &'static Rgb<u8> {
         .0
 }
 
-pub fn round_image(input: &super::args::Args) -> ImageBuffer<Rgb<u8>, Vec<u8>> {
-    // TODO: forgot the scaling part
-    let mut img = ImageBuffer::new(input.width, input.height);
-    for (x, y, rgba) in input.image.pixels() {
+pub fn round_image(scaled_input: &DynamicImage) -> ImageBuffer<Rgb<u8>,Vec<u8>> {
+    // TODO: debug
+    let (width, height) = scaled_input.dimensions();
+    let mut img = ImageBuffer::new(width, height);
+    for (x, y, rgba) in scaled_input.pixels() {
         let new_col = nearest_color(&rgba.to_rgb());
         img.put_pixel(x, y, *new_col);
     }
