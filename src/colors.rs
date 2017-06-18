@@ -1,30 +1,32 @@
 use image::{Rgb, Pixel, Primitive, ImageBuffer, GenericImage, DynamicImage};
 use std::collections::HashMap;
 
-fn delta<S: Primitive, T: Pixel<Subpixel=S>>(x: &T, y: &T) -> S {
+fn delta<S: Primitive, T: Pixel<Subpixel=S>>(x: &T, y: &T) -> u32 
+    where S: Into<u32>
+{
     // Euclidean distance square
     // https://en.wikipedia.org/wiki/Color_difference#Euclidean
     // TODO: incorporate alpha values? s/rgb/rgba ?
     x.to_rgb().data.into_iter()
         .zip(y.to_rgb().data.into_iter())
-        .map(|(&a,&b)| if a>b { (a,b) } else { (b,a) } )
+        .map(|(&a,&b)| if a>b { (a,b) } else { (b,a) } )    // avoid negatives
+        .map(|(a,b)| (a.into(),b.into()))                   // avoid overflow
         .map(|(a,b)| (a-b)*(a-b))
-        .fold(S::zero(), |acc,i| acc+i)
+        .sum()
 }
 
 fn nearest_color(c: &Rgb<u8>) -> &'static Rgb<u8> {
     COLORS_MAP.values()
         .map(|rgb| (rgb, delta(c,rgb)))
         .min_by(|&(_,d1),&(_,d2)| d1.cmp(&d2))
-        .unwrap()   // only problematic if COLORS_MAP.is_empty() 
+        .unwrap()   // only panics if COLORS_MAP.is_empty() 
         .0
 }
 
-pub fn round_image(scaled_input: &DynamicImage) -> ImageBuffer<Rgb<u8>,Vec<u8>> {
-    // TODO: debug
-    let (width, height) = scaled_input.dimensions();
+pub fn round_image(input: &DynamicImage) -> ImageBuffer<Rgb<u8>,Vec<u8>> {
+    let (width, height) = input.dimensions();
     let mut img = ImageBuffer::new(width, height);
-    for (x, y, rgba) in scaled_input.pixels() {
+    for (x, y, rgba) in input.pixels() {
         let new_col = nearest_color(&rgba.to_rgb());
         img.put_pixel(x, y, *new_col);
     }
@@ -36,7 +38,7 @@ pub fn round_image(scaled_input: &DynamicImage) -> ImageBuffer<Rgb<u8>,Vec<u8>> 
 // pattern += "</td><td>[^"]+\n</td><td style="background:#(\w+)">'
 // re.findall(pattern, open("Colour_Palette", 'r').read())
 
-#[derive(PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 enum Colors {
     White,
     BrickYellow,

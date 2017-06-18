@@ -2,11 +2,11 @@
 
 ### requirements
 * image type must be supported by [PistonDevelopers/image](https://crates.io/crates/image)
-* (?) image type must have transparent background (unless we can infer it?)
+* ~(?) image type must have transparent background (unless we can infer it?)~
 
 ### steps
-1. Simplify color palette. This should be equivalent to GIMP's Image -> Mode -> Indexed with a custom palette of Lego colors. This should be linear in the number of pixels in an image.
-2. Pixellate image into blocks. This is basically reducing an image's resolution. Should also be linear in the number of pixels.
+1. Simplify color palette. This should be equivalent to GIMP's Image -> Mode -> Indexed with a custom palette of Lego colors. ~This should be linear in the number of pixels in an image.~ EDIT: for now this is `O(p*|P|)` where `p` is the number of pixels and `|P|` is the cardinality of the color palette.
+2. Pixellate image into blocks. This is basically reducing an image's resolution. Should also be linear in the number of pixels, but I'm just letting the `image` crate handle that so who knows.
 3. Break pixel groups into legos. Try to split into lego sizes based on proportion (e.g. use mostly 2x4's and few 1x1's). This might turn into the knapsack problem (if we're lucky-ish).
 
 ### why
