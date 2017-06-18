@@ -1,5 +1,7 @@
 use image::{Rgb, Pixel, Primitive, ImageBuffer, GenericImage, DynamicImage};
 use std::collections::HashMap;
+use std::path::Path;
+use std::io;
 
 fn delta<S: Primitive, T: Pixel<Subpixel=S>>(x: &T, y: &T) -> u32 
     where S: Into<u32>
@@ -15,22 +17,50 @@ fn delta<S: Primitive, T: Pixel<Subpixel=S>>(x: &T, y: &T) -> u32
         .sum()
 }
 
-fn nearest_color(c: &Rgb<u8>) -> &'static Rgb<u8> {
-    COLORS_MAP.values()
-        .map(|rgb| (rgb, delta(c,rgb)))
+fn nearest_color(c: &Rgb<u8>) -> &'static Color {
+    COLORS_MAP.iter()
+        .map(|(name,rgb)| (name, delta(c, &rgb)))
         .min_by(|&(_,d1),&(_,d2)| d1.cmp(&d2))
         .unwrap()   // only panics if COLORS_MAP.is_empty() 
         .0
 }
 
-pub fn round_image(input: &DynamicImage) -> ImageBuffer<Rgb<u8>,Vec<u8>> {
-    let (width, height) = input.dimensions();
-    let mut img = ImageBuffer::new(width, height);
-    for (x, y, rgba) in input.pixels() {
-        let new_col = nearest_color(&rgba.to_rgb());
-        img.put_pixel(x, y, *new_col);
+#[derive(Debug, PartialEq, Eq)]
+pub struct ColorGrid(Vec<Vec<&'static Color>>);  // TODO: Option<Color> ?
+
+impl ColorGrid {
+    pub fn from_image(input: &DynamicImage) -> Self {
+        let pixels: Vec<_> = input.pixels().collect();
+        ColorGrid(pixels.chunks(input.width() as usize)
+            .map(|row| row.iter()
+                 .map(|&(_,_,rgba)| nearest_color(&rgba.to_rgb()))
+                 .collect())
+            .collect())
     }
-    img
+    pub fn _from_image_2(input: &DynamicImage) -> Self {
+        let (w,h) = (input.width() as usize, input.height() as usize);
+        let mut grid: Vec<_> = (0..h).map(|_| Vec::with_capacity(w)).collect();
+        for (_,y,rgba) in input.pixels() {
+            grid[y as usize].push(nearest_color(&rgba.to_rgb()));
+        }
+        ColorGrid(grid)
+    }
+    fn get(&self, x: usize, y: usize) -> Option<&'static Color> {
+        self.0.get(y).and_then(|row| row.get(x).map(|&c| c))
+    }
+    pub fn width(&self) -> usize {
+        self.0[0].len()
+    }
+    pub fn height(&self) -> usize {
+        self.0.len()
+    }
+    pub fn export<P: AsRef<Path>>(&self, out: P) -> io::Result<()> {
+        let (w, h) = (self.width() as u32, self.height() as u32);
+        ImageBuffer::from_fn(w, h, |x,y| { 
+            let color = self.get(x as usize, y as usize).unwrap();
+            COLORS_MAP[color]
+        }).save(out)
+    }
 }
 
 // http://lego.wikia.com/wiki/Colour_Palette
@@ -39,7 +69,7 @@ pub fn round_image(input: &DynamicImage) -> ImageBuffer<Rgb<u8>,Vec<u8>> {
 // re.findall(pattern, open("Colour_Palette", 'r').read())
 
 #[derive(Debug, PartialEq, Eq, Hash)]
-enum Colors {
+pub enum Color {
     White,
     BrickYellow,
     Nougat,
@@ -85,8 +115,8 @@ enum Colors {
 }
 
 lazy_static! {
-    static ref COLORS_MAP: HashMap<Colors, Rgb<u8>> = {
-        use self::Colors::*;
+    static ref COLORS_MAP: HashMap<Color, Rgb<u8>> = {
+        use self::Color::*;
         // treat all lego colors as 0% opacity
         fn fc(r: u8, g: u8, b: u8) -> Rgb<u8> { Rgb::from_channels(r,g,b,255) }
         let mut map = HashMap::new();
