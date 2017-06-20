@@ -1,5 +1,6 @@
 use image::{Pixel, ImageBuffer, GenericImage, DynamicImage};
 use std::collections::HashMap;
+use std::slice::Iter;
 use std::path::Path;
 use std::io;
 
@@ -59,6 +60,9 @@ impl ColorGrid {
             *count += 1;
         }
         cols
+    }
+    pub fn row_iter(&self, y: usize) -> Option<Iter<&Color>> {
+        self.0.get(y).map(|r| r.iter())
     }
 }
 

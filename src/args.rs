@@ -33,7 +33,7 @@ fn parse_pos_num(n: &str, prog: &str) -> u32 {
 pub fn scale_args() -> DynamicImage {
     // process arguments, open specified image, and resize it
     let mut args = ::std::env::args();
-    let prog = args.next().unwrap();
+    let prog = args.nth(0).unwrap();
     let (mut w, mut h, mut p) = (0, 0, None);
     let (mut expect_w, mut expect_h) = (false, false);
     for arg in args {
