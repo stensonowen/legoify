@@ -1,6 +1,7 @@
 use std::collections::HashMap;
-use std::slice::Iter;
 
+/*
+use std::slice::Iter;
 use super::{Color, ColorGrid};
 use std::ops::Range;
 // A horizontal/vertical unit-width line segment (row/column) composed of zero 
@@ -24,6 +25,7 @@ impl ColorMap {
     fn from_color_grid(cg: &ColorGrid) {
     }
 }
+*/
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Block {

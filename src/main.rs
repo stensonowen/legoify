@@ -3,13 +3,13 @@ extern crate lazy_static;
 extern crate image;
 
 mod args;
-mod colors;
+mod grid;
 
 
 fn main() {
-    //let tmp = grid::block::Blob { f: None };
     let scaled = args::scale_args();
-    let img = colors::ColorGrid::from_image(&scaled);
+    let img = grid::ColorGrid::from_image(&scaled);
+    let monos = img.separate_colors();
     img.export("out1.png").unwrap()
 }
 

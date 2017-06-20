@@ -3,19 +3,46 @@ use std::collections::HashMap;
 use std::slice::Iter;
 use std::path::Path;
 use std::io;
+use std::fmt::Debug;
 
-mod color;
-use self::color::{Color, COLORS_MAP, nearest_color};
+mod colors;
+use self::colors::{Color, COLORS_MAP, nearest_color};
 mod block;
-use self::block::Block;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct ColorGrid(Vec<Vec<&'static Color>>);  // TODO: Option<Color> ?
+pub struct Grid<T: Debug + Eq>(Vec<Vec<T>>);
+
+impl<T: Debug + Eq> Grid<T> {
+    fn get(&self, x: usize, y: usize) -> Option<&T> {
+        self.0.get(y).and_then(|row| row.get(x))
+    }
+    pub fn width(&self) -> usize {
+        self.0[0].len()
+    }
+    pub fn height(&self) -> usize {
+        self.0.len()
+    }
+    pub fn row_iter(&self, y: usize) -> Option<Iter<T>> {
+        self.0.get(y).map(|r| r.iter())
+    }
+    pub fn to_mono(&self, val: &T) -> MonoGrid {
+        Grid(self.0
+             .iter()
+             .map(|row| row.iter()
+                  .map(|t| t == val)
+                  .collect())
+             .collect())
+    }
+}
+
+pub type MonoGrid = Grid<bool>;
+
+pub type ColorGrid = Grid<&'static Color>;
 
 impl ColorGrid {
     pub fn from_image(input: &DynamicImage) -> Self {
         let pixels: Vec<_> = input.pixels().collect();
-        ColorGrid(pixels.chunks(input.width() as usize)
+        Grid(pixels.chunks(input.width() as usize)
             .map(|row| row.iter()
                  .map(|&(_,_,rgba)| nearest_color(&rgba.to_rgb()))
                  .collect())
@@ -27,16 +54,7 @@ impl ColorGrid {
         for (_,y,rgba) in input.pixels() {
             grid[y as usize].push(nearest_color(&rgba.to_rgb()));
         }
-        ColorGrid(grid)
-    }
-    fn get(&self, x: usize, y: usize) -> Option<&'static Color> {
-        self.0.get(y).and_then(|row| row.get(x).map(|&c| c))
-    }
-    pub fn width(&self) -> usize {
-        self.0[0].len()
-    }
-    pub fn height(&self) -> usize {
-        self.0.len()
+        Grid(grid)
     }
     pub fn export<P: AsRef<Path>>(&self, out: P) -> io::Result<()> {
         let (w, h) = (self.width() as u32, self.height() as u32);
@@ -48,28 +66,25 @@ impl ColorGrid {
     //pub fn pixels(&'static self) -> Box<Iterator<Item=&'static Color>> { 
     //    Box::new(self.0.iter().flat_map(|row| row.iter()).map(|&c| c))
     //}
-    pub fn color_counts(&self) -> HashMap<&Color,usize> {
+    pub fn color_counts(&self) -> HashMap<&'static Color,usize> {
         let mut cols = HashMap::new();
-        // include absent colors?
-        //let mut cols: HashMap<&Color,usize> = COLORS_MAP.keys()
-        //    .map(|c| (c,0))
-        //    .collect();
         for pixel in self.0.iter().flat_map(|row| row.iter()) {
-            //let count = cols.get_mut(pixel).unwrap();
             let count = cols.entry(*pixel).or_insert(0);
             *count += 1;
         }
         cols
     }
-    pub fn row_iter(&self, y: usize) -> Option<Iter<&Color>> {
-        self.0.get(y).map(|r| r.iter())
+    pub fn separate_colors(&self) -> ColorGrids {
+        // probably a cool, better way to do this without helpers
+        // TODO: revisit
+        let mut c_grids: HashMap<&'static Color, MonoGrid> = HashMap::new();
+        for col in self.color_counts().keys() {
+            let mono = self.to_mono(col);
+            c_grids.insert(col, mono);
+        }
+        ColorGrids(c_grids)
     }
 }
 
-struct BlockGrid(HashMap<(usize,usize),Block>);
-
-struct Region {
-    color: &'static Color,
-}
-
+pub struct ColorGrids(HashMap<&'static Color, MonoGrid>);
 
