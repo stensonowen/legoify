@@ -1,10 +1,11 @@
 use image::{Pixel, ImageBuffer, GenericImage, DynamicImage};
 use std::collections::HashMap;
-use std::slice::Iter;
+//use std::slice::Iter;
 use std::path::Path;
 use std::io;
 use std::fmt::Debug;
 use std::hash::Hash;
+use std::iter;
 
 mod colors;
 use self::colors::{Color, COLORS_MAP, nearest_color};
@@ -15,6 +16,7 @@ mod mono;
 pub struct Grid<T: Debug + Eq>(Vec<Vec<T>>);
 
 impl<T: Debug + Eq> Grid<T> {
+    // basic getters
     fn get(&self, x: usize, y: usize) -> Option<&T> {
         self.0.get(y).and_then(|row| row.get(x))
     }
@@ -24,28 +26,33 @@ impl<T: Debug + Eq> Grid<T> {
     pub fn height(&self) -> usize {
         self.0.len()
     }
-    pub fn row_iter(&self, y: usize) -> Option<Iter<T>> {
-        self.0.get(y).map(|r| r.iter())
+    // iterator getters
+    //  if a non-existant index is requested, return None
+    pub fn row_iter<'a>(&'a self, y: usize) -> Box<Iterator<Item=&'a T> + 'a> {
+         self.0.get(y).map_or(Box::new(iter::empty()), |r| Box::new(r.iter()))
     }
-    pub fn row_iter_from(&self, y: usize, x: usize) -> Option<Iter<T>> {
-        self.0.get(y).map(|r| r[x..].iter())
+    pub fn row_iter_from<'a>(&'a self, y: usize, x: usize) 
+        -> Box<Iterator<Item=&'a T> + 'a> 
+    {
+         self.0.get(y).map_or(Box::new(iter::empty()), |r| Box::new(r[x..].iter()))
     }
     pub fn col_iter<'a>(&'a self, x: usize) 
-        -> Option<Box<Iterator<Item=&'a T> + 'a>> 
+        -> Box<Iterator<Item=&'a T> + 'a> 
     {
         self.col_iter_from(x, 0)
     }
     pub fn col_iter_from<'a>(&'a self, x: usize, y: usize) 
-        -> Option<Box<Iterator<Item=&'a T> + 'a>> 
+        -> Box<Iterator<Item=&'a T> + 'a>
     {
         // pretty gross, maybe rewrite in the future?
         if x < self.width() {
-            Some(Box::new(self.0[y..].iter()
-                          .map(move |col: &'a Vec<T>| col.get(x).unwrap())))
+            Box::new(self.0[y..].iter()
+                     .map(move |col: &'a Vec<T>| col.get(x).unwrap()))
         } else {
-            None
+            Box::new(iter::empty())
         }
     }
+
     pub fn to_mono(&self, val: &T) -> MonoGrid {
         Grid(self.0
              .iter()
