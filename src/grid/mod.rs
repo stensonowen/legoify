@@ -4,10 +4,12 @@ use std::slice::Iter;
 use std::path::Path;
 use std::io;
 use std::fmt::Debug;
+use std::hash::Hash;
 
 mod colors;
 use self::colors::{Color, COLORS_MAP, nearest_color};
 mod block;
+mod mono;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Grid<T: Debug + Eq>(Vec<Vec<T>>);
@@ -25,6 +27,25 @@ impl<T: Debug + Eq> Grid<T> {
     pub fn row_iter(&self, y: usize) -> Option<Iter<T>> {
         self.0.get(y).map(|r| r.iter())
     }
+    pub fn row_iter_from(&self, y: usize, x: usize) -> Option<Iter<T>> {
+        self.0.get(y).map(|r| r[x..].iter())
+    }
+    pub fn col_iter<'a>(&'a self, x: usize) 
+        -> Option<Box<Iterator<Item=&'a T> + 'a>> 
+    {
+        self.col_iter_from(x, 0)
+    }
+    pub fn col_iter_from<'a>(&'a self, x: usize, y: usize) 
+        -> Option<Box<Iterator<Item=&'a T> + 'a>> 
+    {
+        // pretty gross, maybe rewrite in the future?
+        if x < self.width() {
+            Some(Box::new(self.0[y..].iter()
+                          .map(move |col: &'a Vec<T>| col.get(x).unwrap())))
+        } else {
+            None
+        }
+    }
     pub fn to_mono(&self, val: &T) -> MonoGrid {
         Grid(self.0
              .iter()
@@ -32,6 +53,17 @@ impl<T: Debug + Eq> Grid<T> {
                   .map(|t| t == val)
                   .collect())
              .collect())
+    }
+}
+
+impl<T: Debug + Eq + Hash + Copy> Grid<T> {
+    fn counts(&self) -> HashMap<T,usize> {
+        let mut counts = HashMap::new();
+        for cell in self.0.iter().flat_map(|row| row.iter()) {
+            let count = counts.entry(*cell).or_insert(0);
+            *count += 1;
+        }
+        counts
     }
 }
 
@@ -67,12 +99,7 @@ impl ColorGrid {
     //    Box::new(self.0.iter().flat_map(|row| row.iter()).map(|&c| c))
     //}
     pub fn color_counts(&self) -> HashMap<&'static Color,usize> {
-        let mut cols = HashMap::new();
-        for pixel in self.0.iter().flat_map(|row| row.iter()) {
-            let count = cols.entry(*pixel).or_insert(0);
-            *count += 1;
-        }
-        cols
+        self.counts()
     }
     pub fn separate_colors(&self) -> ColorGrids {
         // probably a cool, better way to do this without helpers

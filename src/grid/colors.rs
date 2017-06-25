@@ -9,9 +9,7 @@ pub fn nearest_color(c: &Rgb<u8>) -> &'static Color {
         .0
 }
 
-fn delta<S: Primitive, T: Pixel<Subpixel=S>>(x: &T, y: &T) -> u32 
-    where S: Into<u32>
-{
+fn delta<S: Primitive+Into<u32>, T: Pixel<Subpixel=S>>(x: &T, y: &T) -> u32 {
     // Euclidean distance square
     // https://en.wikipedia.org/wiki/Color_difference#Euclidean
     // TODO: incorporate alpha values? s/rgb/rgba ?
