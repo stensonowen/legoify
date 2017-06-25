@@ -2,22 +2,31 @@ use image::{Pixel, ImageBuffer, GenericImage, DynamicImage};
 use std::collections::HashMap;
 use std::slice::Iter;
 use std::path::Path;
-use std::io;
+use std::{io, fmt};
 use std::fmt::Debug;
 use std::hash::Hash;
 
-mod colors;
+pub mod colors; // TODO: un-pub
 use self::colors::{Color, COLORS_MAP, nearest_color};
 mod block;
-mod mono;
+pub mod mono;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Grid<T: Debug + Eq>(Vec<Vec<T>>);
+#[derive(PartialEq, Eq, Clone)]
+pub struct Grid<T: Debug + Eq + Clone>(Vec<Vec<T>>);
 
-impl<T: Debug + Eq> Grid<T> {
-    // basic getters
-    fn get(&self, x: usize, y: usize) -> Option<&T> {
-        self.0.get(y).and_then(|row| row.get(x))
+impl<T: Debug + Eq + Clone> Grid<T> {
+    fn blank(default: T, width: usize, height: usize) -> Grid<T> {
+        let row: Vec<_> = (0..width).map(|_| default.clone()).collect();
+        let all: Vec<_> = (0..height).map(|_| row.clone()).collect();
+        Grid(all)
+    }
+    // basic access 
+    fn get(&self, x: usize, y: usize) -> &T {
+        self.0.get(y).and_then(|row| row.get(x)).unwrap()
+    }
+    fn set(&mut self, x: usize, y: usize, val: T) {
+        let ref mut col = self.0[y];
+        col[x] = val;
     }
     pub fn width(&self) -> usize {
         self.0[0].len()
@@ -26,10 +35,10 @@ impl<T: Debug + Eq> Grid<T> {
         self.0.len()
     }
 
-    pub fn _row_iter(&self, y: usize) -> Iter<T> {
+    pub fn row_iter(&self, y: usize) -> Iter<T> {
         self.0.get(y).map(|r| r.iter()).unwrap()
     }
-    pub fn row_iter_from(&self, y: usize, x: usize) -> Iter<T> {
+    pub fn row_iter_from(&self, y: usize, x: usize) -> Iter<T> { // beware footgun
         self.0.get(y).map(|r| r[x..].iter()).unwrap()
     }
 
@@ -45,7 +54,7 @@ impl<T: Debug + Eq> Grid<T> {
         Box::new(self.0[y..].iter().map(move |col| col.get(x).unwrap()))
     }
 
-    pub fn to_mono(&self, val: &T) -> MonoGrid {
+    pub fn to_mono(&self, val: &T) -> Grid<bool> {
         Grid(self.0
              .iter()
              .map(|row| row.iter()
@@ -66,7 +75,27 @@ impl<T: Debug + Eq + Hash + Copy> Grid<T> {
     }
 }
 
-pub type MonoGrid = Grid<bool>;
+impl<T: Debug + Eq + Clone> fmt::Debug for Grid<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for r in 0 .. self.height() {
+            for c in self.row_iter(r) {
+                let preview = format!("{:?}", c);
+                let short = if preview.len() > 3 {
+                    &preview[..3]
+                } else {
+                    &preview[..]
+                };
+                write!(f, "{:3} ", short)?;
+            }
+            writeln!(f)?;
+        }
+        writeln!(f)
+    }
+}
+
+
+//pub type MonoGrid = Grid<bool>;
+pub type MonoGrid_ = Grid<bool>;
 
 pub type ColorGrid = Grid<&'static Color>;
 
@@ -90,7 +119,7 @@ impl ColorGrid {
     pub fn export<P: AsRef<Path>>(&self, out: P) -> io::Result<()> {
         let (w, h) = (self.width() as u32, self.height() as u32);
         ImageBuffer::from_fn(w, h, |x,y| { 
-            let color = self.get(x as usize, y as usize).unwrap();
+            let color = self.get(x as usize, y as usize);
             COLORS_MAP[color]
         }).save(out)
     }
@@ -103,7 +132,7 @@ impl ColorGrid {
     pub fn separate_colors(&self) -> ColorGrids {
         // probably a cool, better way to do this without helpers
         // TODO: revisit
-        let mut c_grids: HashMap<&'static Color, MonoGrid> = HashMap::new();
+        let mut c_grids: HashMap<&'static Color, MonoGrid_> = HashMap::new();
         for col in self.color_counts().keys() {
             let mono = self.to_mono(col);
             c_grids.insert(col, mono);
@@ -112,5 +141,5 @@ impl ColorGrid {
     }
 }
 
-pub struct ColorGrids(HashMap<&'static Color, MonoGrid>);
+pub struct ColorGrids(pub HashMap<&'static Color, MonoGrid_>); // TODO: un-pub
 
